@@ -33,7 +33,6 @@ incomplete_BLs <- masses |>
 # relative biomass table
 cam_rel <- masses |>
   dplyr::filter(! BL_ID %in% incomplete_BLs, # complete BLs only
-                # ! Prey == "Squid", # fish only
                 ! is.na(TotalMass)) |> # measurable BLs only
   dplyr::group_by(BL_ID, Prey) |>
   dplyr::summarize(Mass = sum(TotalMass)) |>
@@ -66,11 +65,13 @@ cam_rel_fish[is.na(cam_rel_fish)] <- 0
 cam_rel <- cam_rel |>
   dplyr::mutate(sum = rowSums(dplyr::across(where(is.numeric)))) |>
   assertr::assert(assertr::within_bounds(0.99,1.01), sum) |>
-  dplyr::select(-sum)
+  dplyr::select(-sum) |>
+  dplyr::rename(Sand_lance = Sandlance)
 cam_rel_fish <- cam_rel_fish |>
   dplyr::mutate(sum = rowSums(dplyr::across(where(is.numeric)))) |>
   assertr::assert(assertr::within_bounds(0.99,1.01), sum) |>
-  dplyr::select(-sum)
+  dplyr::select(-sum) |>
+  dplyr::rename(Sand_lance = Sandlance)
 
 # export cam tables
 # write.csv(cam_rel, 'processed_data/Cam_rel.csv', row.names = FALSE)

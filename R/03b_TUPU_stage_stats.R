@@ -2,6 +2,7 @@
 # SETUP -----------------------------------------------------------------------
 # setwd("..")
 library(ggplot2)
+library(shadowtext)
 
 #------------------------------------------------------------------------------
 # STAGE/AGE PERMANOVA & NMDS
@@ -18,14 +19,16 @@ combined_rra <- read.csv('processed_data/TUPU_rra_combined.csv') |>
                 Tomcod = Gadid,
                 Invert = Ctenophore + Squid,
                 .keep = "unused") |>
-  dplyr::select(-c(index:Stage))
+  dplyr::select(-Fecal.Sample.ID)
 
 stage_rra <- combined_rra |>
   dplyr::filter(type %in% c("Adult_INC", "Adult_CHR"))
 age_rra <- combined_rra |>
   dplyr::filter(type %in% c("Adult_CHR", "Chick"))
 
-# PERMANOVA -------------------------------------------------------------------
+# PERMANOVA & PERMDISP --------------------------------------------------------
+
+# PERMANOVA
 
 # stage rra
 stage_rra_m <- stage_rra[,2:ncol(stage_rra)] |> as.matrix()
@@ -39,11 +42,21 @@ set.seed(123)
 vegan::adonis2(age_rra_m ~ type, data = age_rra, 
                permutations = 999, method = "bray")
 
-# SIMPER (but documentation cautions against using this)
-sim_stage <- vegan::simper(stage_rra_m, group = stage_rra$type)
-summary(sim_stage) # jellyfish, copepod, and prowfish
-sim_age <- vegan::simper(age_rra_m, group = age_rra$type)
-summary(sim_age) # gadus
+# PERMDISP
+
+# stage rra
+dist_stage_rra <- vegan::vegdist(stage_rra_m, method = "bray")
+beta_stage_rra <- vegan::betadisper(d = dist_stage_rra, group = stage_rra$type,
+                                    type = "centroid")
+set.seed(123)
+permd_stage_rra <- vegan::permutest(beta_stage_rra, permutations = 999)
+
+# age rra
+dist_age_rra <- vegan::vegdist(age_rra_m, method = "bray")
+beta_age_rra <- vegan::betadisper(d = dist_age_rra, group = age_rra$type,
+                                    type = "centroid")
+set.seed(123)
+permd_age_rra <- vegan::permutest(beta_age_rra, permutations = 999)
 
 # NMDS ------------------------------------------------------------------------
 
@@ -58,6 +71,9 @@ nmds_rra # stress 0.14
 # extract scores (x and y coords)
 site.scores_rra <- as.data.frame(vegan::scores(nmds_rra)$sites)
 species.scores_rra <- as.data.frame(vegan::scores(nmds_rra)$species)
+species.scores_rra <- species.scores_rra |>
+  dplyr::mutate(Label = stringr::str_replace_all(row.names(species.scores_rra), 
+                                                 c("Fish" = "Other fish")))
 
 # add columns back to data frame 
 site.scores_rra$type <- combined_rra$type
@@ -70,14 +86,17 @@ site.scores_rra$type <- factor(site.scores_rra$type,
 nmds_rra <- ggplot() + 
   geom_point(data = site.scores_rra, 
              aes(x = NMDS1, y = NMDS2, color = type), 
-             position = position_jitter(0.1, 0.1, seed = 1), size = 2, alpha = 0.3) + 
+             position = ggforce::position_jitternormal(sd_x = 0.05, sd_y = 0.05, seed = 1),
+             size = 2, alpha = 0.3) + 
   geom_point(data = species.scores_rra, aes(x = NMDS1, y = NMDS2), alpha = 0) +
   scale_color_manual(values = c("red", "blue", "green")) +
   scale_x_continuous(breaks = c(-2,-1,0,1,2)) +
   scale_y_continuous(breaks = c(-2,-1,0,1,2)) +
-  stat_ellipse(data = site.scores_rra, aes(x = NMDS1, y = NMDS2, color = type), alpha = 0.5) +
+  stat_ellipse(data = site.scores_rra, aes(x = NMDS1, y = NMDS2, color = type), 
+               type = "norm", alpha = 0.5) +
   ggrepel::geom_text_repel(data = species.scores_rra, aes(x = NMDS1, y = NMDS2, 
-                                                      label = row.names(species.scores_rra)), size = 3.5) +
+                                                      label = Label), size = 3.5,
+                           color = "black", bg.color = "white") +
   theme_classic(base_size = 10) + 
   guides(x.sec = "axis", y.sec = "axis") +
   theme(legend.position = "none",

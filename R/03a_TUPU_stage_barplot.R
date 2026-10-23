@@ -10,7 +10,7 @@ source("R/my_palette.R")
 
 # group together prey that don't make up >5% by any method in any group
 combined_rra <- read.csv('processed_data/TUPU_rra_combined.csv') |>
-  dplyr::mutate(Fish = Fish + 
+  dplyr::mutate(Other_fish = Fish + 
                   Sablefish + Red_Irish_lord + Sandfish + Medusafish + Sand_lance +
                   Sculpin + Buffalo_sculpin + Grunt_sculpin +
                   Sailfin_sculpin + Longfin_sculpin + Sharpnose_sculpin +
@@ -63,11 +63,21 @@ diet_sum$type <- factor(diet_sum$type,
 diet_sum$Prey <- factor(diet_sum$Prey,
                         levels = c("Copepod", "Jellyfish", "Invert",
                                    "Pollock", "Tomcod", "Herring", "Capelin",
-                                   "Prowfish", "Greenling", "Fish"))
+                                   "Prowfish", "Greenling", "Other_fish"))
+# clean names
+diet_sum <- diet_sum |>
+  dplyr::mutate(Prey = forcats::fct_recode(Prey, "Other fish" = "Other_fish"))
 
 # plot
-barplots <- ggplot(data = diet_sum, aes(y = Proportion, x = Method, fill = Prey, pattern = Prey)) +
-  geom_bar(position = "fill", stat = "identity", width = 0.9) +
+barplots <- ggplot(data = diet_sum, aes(y = Proportion, x = Method, fill = Prey)) +
+  ggpattern::geom_bar_pattern(aes(pattern = Prey, pattern_angle = Prey,
+                                  pattern_color = Prey, pattern_fill = Prey),
+                              position = "fill", stat = "identity", width = 0.9,
+                              pattern_size = 0.05, pattern_key_scale_factor = 0.3) +
+  ggpattern::scale_pattern_manual(name = "Prey", values = combined_pattern) +
+  ggpattern::scale_pattern_angle_manual(name = "Prey", values = combined_pattern_angle) +
+  ggpattern::scale_pattern_color_manual(name = "Prey", values = lightened_palette) +
+  ggpattern::scale_pattern_fill_manual(name = "Prey", values = lightened_palette) +
   scale_fill_manual(name = "Prey", values = combined_palette) +
   ylab("Proportion of diet") +
   scale_x_discrete(labels=c("FOO", "RRA")) +

@@ -31,7 +31,7 @@ non_zero_fish <- fish_rra |>
   dplyr::filter(value >= 0.01) |>
   dplyr::pull(name)
 fish_rra <- fish_rra |>
-  dplyr::select(index, Age, Stage, all_of(non_zero_fish))
+  dplyr::select(Fecal.Sample.ID = index, Age, Stage, all_of(non_zero_fish))
 
 non_zero_metazoa <- metazoa_rra |>
   dplyr::summarize(dplyr::across(Copepod:Goose_barnacle, max)) |>
@@ -39,19 +39,19 @@ non_zero_metazoa <- metazoa_rra |>
   dplyr::filter(value >= 0.01) |>
   dplyr::pull(name)
 metazoa_rra <- metazoa_rra |>
-  dplyr::select(index, Age, Stage, all_of(non_zero_metazoa))
+  dplyr::select(Fecal.Sample.ID = index, Age, Stage, all_of(non_zero_metazoa))
 
 # mean hatch date 13 July
 fish_rra <- fish_rra |>
   dplyr::mutate(type = dplyr::case_when(Age == "CH" ~ "Chick",
                                  Age == "AD" & Stage == "INC" ~ "Adult_INC",
                                  Age == "AD" & Stage == "CHR" ~ "Adult_CHR"),
-                .before = Stenobrachius)
+                .before = Stenobrachius, .keep = "unused")
 metazoa_rra <- metazoa_rra |>
   dplyr::mutate(type = dplyr::case_when(Age == "CH" ~ "Chick",
                                  Age == "AD" & Stage == "INC" ~ "Adult_INC",
                                  Age == "AD" & Stage == "CHR" ~ "Adult_CHR"),
-                .before = Copepod)
+                .before = Copepod, .keep = "unused")
 
 # export fDNA tables
 # write.csv(fish_rra, 'processed_data/TUPU_rra_fish.csv', row.names = FALSE)
@@ -69,7 +69,7 @@ rra <- metazoa_rra %>%
   # make sure individual rras sum to 1
   replace(is.na(.), 0) %>%
   dplyr::mutate(dplyr::across(where(is.numeric), round, 3)) %>%
-  dplyr::mutate(sum = rowSums(across(where(is.numeric)))) %>%
+  dplyr::mutate(sum = rowSums(dplyr::across(where(is.numeric)))) %>%
   assertr::assert(assertr::within_bounds(0.99,1.01), sum) %>%
   dplyr::select(-sum)
 
@@ -84,10 +84,12 @@ link_ids <- read.csv('raw_data/BLKI_deployments.csv') |>
 
 fish <- read.csv('raw_data/level-7_common_names.csv') |>
   dplyr::left_join(link_ids, dplyr::join_by("index" == "Fecal.Sample.ID")) |>
-  dplyr::filter(! is.na(dep_id)) # remove birds from other project
+  dplyr::filter(! is.na(dep_id)) |> # remove birds from other project
+  dplyr::select(-dep_id)
 metazoa <- read.csv('raw_data/level-6_common_names.csv') |>
   dplyr::left_join(link_ids, dplyr::join_by("index" == "Fecal.Sample.ID")) |>
-  dplyr::filter(! is.na(dep_id)) # remove birds from other project
+  dplyr::filter(! is.na(dep_id)) |> # remove birds from other project
+  dplyr::select(-dep_id)
 
 fish_rra <- fish |>
   dplyr::mutate(sum = rowSums(dplyr::across(Stenobrachius:Sailfin_sculpin))) |>
@@ -107,7 +109,7 @@ non_zero_fish <- fish_rra |>
   dplyr::filter(value >= 0.01) |>
   dplyr::pull(name)
 fish_rra <- fish_rra |>
-  dplyr::select(index, dep_id, all_of(non_zero_fish))
+  dplyr::select(Fecal.Sample.ID = index, all_of(non_zero_fish))
 
 non_zero_metazoa <- metazoa_rra |>
   dplyr::summarize(dplyr::across(Copepod:Goose_barnacle, max)) |>
@@ -115,7 +117,7 @@ non_zero_metazoa <- metazoa_rra |>
   dplyr::filter(value >= 0.01) |>
   dplyr::pull(name)
 metazoa_rra <- metazoa_rra |>
-  dplyr::select(index, dep_id, all_of(non_zero_metazoa))
+  dplyr::select(Fecal.Sample.ID = index, all_of(non_zero_metazoa))
 
 # make sure rows sum to 1
 fish_rra <- fish_rra |>
@@ -136,7 +138,6 @@ metazoa_rra <- metazoa_rra |>
 library(magrittr)
 rra <- metazoa_rra %>%
   dplyr::left_join(fish_rra) %>%
-  dplyr::relocate(dep_id, .after = index) %>%
   # if 12S data available, replace "Fish" rra with species rras
   dplyr::mutate_at(dplyr::vars(Stenobrachius:Atlantic_salmon), dplyr::funs(. * Fish)) %>%
   dplyr::mutate(Fish = dplyr::case_when(! is.na(Stenobrachius) ~ 0,
